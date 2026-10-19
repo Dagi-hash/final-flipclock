@@ -1,0 +1,7 @@
+{
+  "appId": "com.flipclock.app",
+  "appName": "Flip Clock",
+  "webDir": "www",
+  "backgroundColor": "#000000",
+  "android": { "backgroundColor": "#000000" }
+}

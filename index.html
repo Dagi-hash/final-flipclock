@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-mode="flip">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Flip Clock</title>
+<meta name="description" content="Flip clock with alarms, timer and stopwatch.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flip Clock">
+<meta id="meta-theme" name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script>
+/* apply saved theme + clock mode before first paint (no flash) */
+try {
+  var s = JSON.parse(localStorage.getItem('flipclock.v1') || '{}'), r = document.documentElement;
+  r.setAttribute('data-theme', s.theme === 'light' ? 'light' : 'dark');
+  r.setAttribute('data-mode', ['flip','digital','analog'].indexOf(s.clockMode) > -1 ? s.clockMode : 'flip');
+} catch (e) {}
+</script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <header class="topbar">
+        <div class="brand">
+            <div class="dot"></div>
+            <span id="header-title" class="title">Current Time</span>
+        </div>
+        <div class="top-actions">
+            <!-- Dark / Light toggle -->
+            <button id="theme-toggle-btn" onclick="toggleTheme()" class="icon-btn" title="Toggle dark / light mode" aria-label="Toggle dark or light mode">
+                <svg class="i-sun" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path stroke-linecap="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/></svg>
+                <svg class="i-moon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+            </button>
+            <!-- Sound Test / Mute Indicator -->
+            <button id="sound-toggle-btn" onclick="toggleMute()" class="chip-btn" title="Toggle Audio Alerts">
+                <svg id="sound-on-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                </svg>
+                <svg id="sound-off-icon" hidden fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+                </svg>
+                <span id="sound-label" class="sound-label">Sound On</span>
+            </button>
+            <!-- 12H / 24H Switch -->
+            <button id="format-toggle-btn" onclick="toggleTimeFormat()" class="chip-btn mono">24H</button>
+        </div>
+    </header>
+
+    <!-- Swipe-away notification banner -->
+    <div id="alert-banner" class="banner" role="alert">
+        <div class="banner-main">
+            <div class="banner-icon">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+            </div>
+            <div style="min-width:0">
+                <p id="alert-title" class="banner-title">Alarm Ringing</p>
+                <p id="alert-subtitle" class="banner-sub">Time is up</p>
+            </div>
+        </div>
+        <button onclick="dismissAlert()" class="btn btn-primary">Dismiss</button>
+    </div>
+
+    <!-- Main View Container -->
+    <main class="main">
+
+        <!-- ================= 1. CLOCK VIEW ================= -->
+        <section id="view-clock" class="view active">
+            <p id="clock-date" class="date">THURSDAY, OCT 15</p>
+
+            <div class="face-wrap">
+                <!-- FLIP -->
+                <div class="mode-flip">
+                    <div class="flip-row">
+                        <div class="flip-col">
+                            <div class="flip-group"><div class="flip-unit" data-flip-id="clock-h1"></div><div class="flip-unit" data-flip-id="clock-h2"></div></div>
+                            <span id="clock-ampm" class="flip-label ampm">AM</span>
+                        </div>
+                        <div class="flip-colon"><span></span><span></span></div>
+                        <div class="flip-col">
+                            <div class="flip-group"><div class="flip-unit" data-flip-id="clock-m1"></div><div class="flip-unit" data-flip-id="clock-m2"></div></div>
+                            <span class="flip-label">MIN</span>
+                        </div>
+                        <div class="flip-colon"><span></span><span></span></div>
+                        <div class="flip-col">
+                            <div class="flip-group"><div class="flip-unit" data-flip-id="clock-s1"></div><div class="flip-unit" data-flip-id="clock-s2"></div></div>
+                            <span class="flip-label">SEC</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DIGITAL -->
+                <div class="mode-digital">
+                    <div class="dig"><span id="dg-h">00</span><span class="sep">:</span><span id="dg-m">00</span><span class="dsec"><span class="sep">:</span><span id="dg-s">00</span></span></div>
+                    <span id="dg-ampm" class="ampm-badge">AM</span>
+                </div>
+
+                <!-- ANALOG -->
+                <div class="mode-analog">
+                    <div class="analog">
+                        <svg viewBox="0 0 200 200" aria-label="Analog clock">
+                            <circle class="an-face" cx="100" cy="100" r="96"></circle>
+                            <g id="an-ticks"></g>
+                            <g id="an-nums"></g>
+                            <rect class="an-pill" x="80" y="124" width="40" height="18" rx="9"></rect>
+                            <text id="an-ampm" class="an-ampm" x="101" y="133.5">AM</text>
+                            <line id="an-hour" class="an-hand" x1="100" y1="106" x2="100" y2="58" stroke-width="5"></line>
+                            <line id="an-min" class="an-hand" x1="100" y1="108" x2="100" y2="32" stroke-width="3.4"></line>
+                            <line id="an-sec" class="an-sec" x1="100" y1="114" x2="100" y2="20"></line>
+                            <circle class="an-hub" cx="100" cy="100" r="4.5"></circle>
+                            <circle class="an-hub2" cx="100" cy="100" r="1.8"></circle>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clock style switch -->
+            <div id="mode-seg" class="seg" style="--i:0">
+                <div class="seg-thumb"></div>
+                <button data-mode="flip" onclick="setClockMode('flip')" class="active">Flip</button>
+                <button data-mode="digital" onclick="setClockMode('digital')">Digital</button>
+                <button data-mode="analog" onclick="setClockMode('analog')">Analog</button>
+            </div>
+
+            <!-- Next Alarm Pill -->
+            <div id="next-alarm-pill" class="pill">
+                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <circle cx="12" cy="13" r="8"></circle>
+                    <path stroke-linecap="round" d="M12 9v4l2.5 2.5M5 3L2 6m20 0l-3-3"></path>
+                </svg>
+                <span id="next-alarm-text">No active alarms</span>
+            </div>
+
+            <!-- Install App (front screen) -->
+            <button id="front-install-btn" onclick="installPWA()" hidden class="btn btn-primary install-btn">
+                <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Install App
+            </button>
+        </section>
+
+        <!-- ================= 2. ALARM VIEW ================= -->
+        <section id="view-alarm" class="view">
+            <div class="card alarm-head">
+                <div>
+                    <span class="eyebrow" style="margin-bottom:.125rem">Alarms</span>
+                    <h2>Wake &amp; Reminders</h2>
+                </div>
+                <button onclick="openAlarmModal()" class="btn btn-primary">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    New Alarm
+                </button>
+            </div>
+            <div id="alarm-list" class="alarm-list"></div>
+        </section>
+
+        <!-- ================= 3. TIMER VIEW ================= -->
+        <section id="view-timer" class="view">
+            <div class="row-between">
+                <span class="eyebrow" style="font-size:.75rem">Countdown</span>
+                <span id="timer-status-badge" class="badge">Ready</span>
+            </div>
+
+            <div class="timer-center">
+                <!-- flip version -->
+                <div class="t-flip">
+                    <div class="flip-row">
+                        <div class="flip-col"><div class="flip-group"><div class="flip-unit" data-flip-id="timer-h1"></div><div class="flip-unit" data-flip-id="timer-h2"></div></div><span class="flip-label">HRS</span></div>
+                        <div class="flip-colon"><span></span><span></span></div>
+                        <div class="flip-col"><div class="flip-group"><div class="flip-unit" data-flip-id="timer-m1"></div><div class="flip-unit" data-flip-id="timer-m2"></div></div><span class="flip-label">MIN</span></div>
+                        <div class="flip-colon"><span></span><span></span></div>
+                        <div class="flip-col"><div class="flip-group"><div class="flip-unit" data-flip-id="timer-s1"></div><div class="flip-unit" data-flip-id="timer-s2"></div></div><span class="flip-label">SEC</span></div>
+                    </div>
+                </div>
+                <!-- digital / analog version (fits any screen width) -->
+                <div class="t-digital">
+                    <div class="dig"><span id="td-h">00</span><span class="sep">:</span><span id="td-m">05</span><span class="sep">:</span><span id="td-s">00</span></div>
+                    <div class="dig-labels"><span>HRS</span><span>MIN</span><span>SEC</span></div>
+                </div>
+
+                <div id="timer-setup-controls">
+                    <div class="stepper-grid">
+                        <div class="stepper"><button class="step-btn" onclick="adjustTimer(3600, -1)">-</button><span>HR</span><button class="step-btn" onclick="adjustTimer(3600, 1)">+</button></div>
+                        <div class="stepper"><button class="step-btn" onclick="adjustTimer(60, -1)">-</button><span>MIN</span><button class="step-btn" onclick="adjustTimer(60, 1)">+</button></div>
+                        <div class="stepper"><button class="step-btn" onclick="adjustTimer(1, -15)">-</button><span>SEC</span><button class="step-btn" onclick="adjustTimer(1, 15)">+</button></div>
+                    </div>
+                    <div class="chips">
+                        <button class="chip" onclick="setTimerPreset(60)">1m</button>
+                        <button class="chip" onclick="setTimerPreset(180)">3m</button>
+                        <button class="chip" onclick="setTimerPreset(300)">5m</button>
+                        <button class="chip" onclick="setTimerPreset(600)">10m</button>
+                        <button class="chip" onclick="setTimerPreset(1500)">25m</button>
+                        <button class="chip ghost" onclick="setTimerPreset(0)">Clear</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="timer-reset-btn" onclick="resetTimer()" class="btn btn-outline btn-lg">Reset</button>
+                <button id="timer-toggle-btn" onclick="toggleTimer()" class="btn btn-primary btn-lg">Start</button>
+            </div>
+        </section>
+
+        <!-- ================= 4. STOPWATCH VIEW ================= -->
+        <section id="view-stopwatch" class="view">
+            <div class="sw-display">
+                <div class="t-flip">
+                    <div class="flip-row">
+                        <div class="flip-group"><div class="flip-unit" data-flip-id="sw-m1"></div><div class="flip-unit" data-flip-id="sw-m2"></div></div>
+                        <div class="flip-colon"><span></span><span></span></div>
+                        <div class="flip-group"><div class="flip-unit" data-flip-id="sw-s1"></div><div class="flip-unit" data-flip-id="sw-s2"></div></div>
+                        <span class="flip-dot">.</span>
+                        <div class="flip-group"><div class="flip-unit sm" data-flip-id="sw-ms1"></div><div class="flip-unit sm" data-flip-id="sw-ms2"></div></div>
+                    </div>
+                </div>
+                <div class="t-digital">
+                    <div id="sw-digital" class="dig"><span id="sd-m">00</span><span class="sep">:</span><span id="sd-s">00</span><span class="dsec"><span class="sep">.</span><span id="sd-c">00</span></span></div>
+                </div>
+            </div>
+
+            <div class="actions" style="margin:.75rem 0">
+                <button id="sw-secondary-btn" onclick="lapOrResetStopwatch()" disabled class="btn btn-outline btn-lg" style="padding:.75rem 0">Lap</button>
+                <button id="sw-primary-btn" onclick="toggleStopwatch()" class="btn btn-primary btn-lg" style="padding:.75rem 0">Start</button>
+            </div>
+
+            <div class="lap-panel">
+                <div class="lap-head"><span>Lap #</span><span>Split</span><span>Total</span></div>
+                <div id="lap-list" class="lap-list"><div class="lap-empty">No laps recorded</div></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Add Alarm Modal -->
+    <div id="alarm-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3>Set New Alarm</h3>
+                <button onclick="closeAlarmModal()" class="x-btn" aria-label="Close">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="time-pick">
+                <div class="time-col">
+                    <button onclick="stepModalTime('h', 1)" class="arrow-btn">&#9650;</button>
+                    <div id="modal-hour" class="time-box">07</div>
+                    <button onclick="stepModalTime('h', -1)" class="arrow-btn">&#9660;</button>
+                </div>
+                <span class="time-colon">:</span>
+                <div class="time-col">
+                    <button onclick="stepModalTime('m', 1)" class="arrow-btn">&#9650;</button>
+                    <div id="modal-minute" class="time-box">00</div>
+                    <button onclick="stepModalTime('m', -1)" class="arrow-btn">&#9660;</button>
+                </div>
+            </div>
+
+            <div>
+                <label class="field-label" for="modal-label">Label</label>
+                <input id="modal-label" type="text" maxlength="24" placeholder="Morning Workout" class="input">
+            </div>
+
+            <div class="modal-actions">
+                <button onclick="closeAlarmModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="saveNewAlarm()" class="btn btn-primary">Save Alarm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="nav">
+        <div id="nav-bar" class="nav-bar" style="--i:0">
+            <div class="nav-ind"></div>
+            <button onclick="switchTab('clock')" data-tab="clock" class="nav-btn active">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"></path></svg>
+                <span>Clock</span>
+            </button>
+            <button onclick="switchTab('alarm')" data-tab="alarm" class="nav-btn">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4l2 2M5 3L2 6m20 0l-3-3"></path></svg>
+                <span>Alarm</span>
+            </button>
+            <button onclick="switchTab('timer')" data-tab="timer" class="nav-btn">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 2h4m-2 12V9m8 4a8 8 0 11-16 0 8 8 0 0116 0z"></path></svg>
+                <span>Timer</span>
+            </button>
+            <button onclick="switchTab('stopwatch')" data-tab="stopwatch" class="nav-btn">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>Stopwatch</span>
+            </button>
+        </div>
+    </nav>
+
+    <script src="app.js"></script>
+</body>
+</html>
